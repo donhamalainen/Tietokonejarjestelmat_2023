@@ -69,22 +69,48 @@ uint16_t opt3001_get_status(I2C_Handle *i2c) {
 double opt3001_get_data(I2C_Handle *i2c) {
 
     // JTKJ: Tehtävä 2. Muokkaa funktiota niin että se palauttaa mittausarvon lukseina
-    // JTKJ: Exercise 2. Complete this function to return the measured value as lux
+
+    // RTOS:n i2c-muuttujat
+      I2C_Handle      i2c;
+      I2C_Params      i2cParams;
+      I2C_Transaction i2cMessage;
+
+    // Alustetaan i2c-väylä
+    I2C_Params_init(&i2cParams);
+    i2cParams.bitRate = I2C_400kHz;
+
+    // Avataan yhteys
+    i2c = I2C_open(opt3001_setup, &i2cParams);
+    if (i2c == NULL) {
+       System_abort("Error Initializing I2C\n");
+    }
 
 	double lux = -1.0; // return value of the function
     // JTKJ: Find out the correct buffer sizes (n) with this sensor?
-    // uint8_t txBuffer[ n ];
-    // uint8_t rxBuffer{ n ];
+
+    uint8_t txBuffer[ 1 ];  // Nyt lähetetään yksi tavu
+    uint8_t rxBuffer[ 2 ];  // Nyt vastaanotetaan kaksi tavua
 
 	// JTKJ: Fill in the i2cMessage data structure with correct values
     //       as shown in the lecture material
-    I2C_Transaction i2cMessage;
 
-	if (opt3001_get_status(i2c) & OPT3001_DATA_READY) {
+    // i2c-viestirakenne
+    i2cMessage.slaveAddress = Board_OPT3001_ADDR;
+    txBuffer[0] = Board_OPT3001_ADDR;      // Rekisterin osoite lähetyspuskuriin
+    i2cMessage.writeBuf = txBuffer; // Lähetyspuskurin asetus
+    i2cMessage.writeCount = 1;      // Lähetetään 1 tavu
+    i2cMessage.readBuf = rxBuffer;  // Vastaanottopuskurin asetus
+    i2cMessage.readCount = 2;       // Vastaanotetaan 2 tavua
+
+    // rxBuffer[0]: datarekisterin MSB-tavu
+    // rxBuffer[1]: datarekisterin LSB-tavu
+
+    if (opt3001_get_status(i2c) & OPT3001_DATA_READY) {
 
 		if (I2C_transfer(*i2c, &i2cMessage)) {
 
 	        // JTKJ: Here the conversion from register value to lux
+
 
 		} else {
 

@@ -104,20 +104,23 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         System_abort("Error Initializing I2C\n");
     }
     // JTKJ: Exercise 2. Open the i2c bus
-
     // JTKJ: Teht�v� 2. Alusta sensorin OPT3001 setup-funktiolla
     //       Laita enne funktiokutsua eteen 100ms viive (Task_sleep)
     Task_sleep(100000 / Clock_tickPeriod);
     opt3001_setup(&i2c);
     // JTKJ: Exercise 2. Setup the OPT3001 sensor for use
     //       Before calling the setup function, insertt 100ms delay with Task_sleep
+    char str[100];
+
     while (1) {
 
         // JTKJ: Teht�v� 2. Lue sensorilta dataa ja tulosta se Debug-ikkunaan merkkijonona
         // JTKJ: Exercise 2. Read sensor data and print it to the Debug window as string
-        float lux = opt3001_get_data(&i2c);
-        System_printf("Lux: %d\n", lux);
-        System_flush();
+        if(programState == WAITING){
+            double lux = opt3001_get_data(&i2c);
+            sprintf(str,"Lux: %f\n", lux);
+            System_printf(str);
+        }
 
         // JTKJ: Teht�v� 3. Tallenna mittausarvo globaaliin muuttujaan
         //       Muista tilamuutos

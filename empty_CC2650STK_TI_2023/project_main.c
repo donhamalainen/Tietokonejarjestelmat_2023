@@ -99,7 +99,7 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     i2cParams.bitRate = I2C_400kHz;
 
     // Avataan yhteys
-    i2c = I2C_open(Board_I2C0, &i2cParams);
+    i2c = I2C_open(Board_I2C, &i2cParams);
     if (i2c == NULL) {
         System_abort("Error Initializing I2C\n");
     }
@@ -133,6 +133,7 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     System_printf("System Flush\n");
     System_flush();
 }
+
 
 Int main(void) {
 

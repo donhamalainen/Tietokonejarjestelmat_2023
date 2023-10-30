@@ -94,51 +94,44 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     I2C_Handle      i2c;
     I2C_Params      i2cParams;
 
-    // JTKJ: Tehtävä 2. Avaa i2c-väylä taskin käyttöön
+    // JTKJ: Teht�v� 2. Avaa i2c-v�yl� taskin k�ytt��n
     I2C_Params_init(&i2cParams);
     i2cParams.bitRate = I2C_400kHz;
 
     // Avataan yhteys
-    i2c = I2C_open(Board_I2C_TMP, &i2cParams);
-       if (i2c == NULL) {
-          System_abort("Error Initializing I2C\n");
-       }
+    i2c = I2C_open(Board_I2C0, &i2cParams);
+    if (i2c == NULL) {
+        System_abort("Error Initializing I2C\n");
+    }
     // JTKJ: Exercise 2. Open the i2c bus
 
-    // JTKJ: Tehtävä 2. Alusta sensorin OPT3001 setup-funktiolla
+    // JTKJ: Teht�v� 2. Alusta sensorin OPT3001 setup-funktiolla
     //       Laita enne funktiokutsua eteen 100ms viive (Task_sleep)
-    Task_sleep(1000000 / Clock_tickPeriod);
+    Task_sleep(100000 / Clock_tickPeriod);
     opt3001_setup(&i2c);
     // JTKJ: Exercise 2. Setup the OPT3001 sensor for use
-    //       Before calling the setup function, insert 100ms delay with Task_sleep
-
+    //       Before calling the setup function, insertt 100ms delay with Task_sleep
     while (1) {
 
-        // JTKJ: Tehtävä 2. Lue sensorilta dataa ja tulosta se Debug-ikkunaan merkkijonona
-
-        // System_printf("sensorTask: %d\n", opt3001_get_data(&i2c));
-        
-        ////////////// JATKA TÄSTÄ ETEENPÄIN //////////////
-        double lux = opt3001_get_data(&i2c);
-        System_printf("%d\n",lux);
+        // JTKJ: Teht�v� 2. Lue sensorilta dataa ja tulosta se Debug-ikkunaan merkkijonona
+        // JTKJ: Exercise 2. Read sensor data and print it to the Debug window as string
+        float lux = opt3001_get_data(&i2c);
+        System_printf("Lux: %d\n", lux);
         System_flush();
 
-        //System_printf("OPT3001: SensorTask\n");
-        //System_flush();
-        // JTKJ: Exercise 2. Read sensor data and print it to the Debug window as string
-
-        // JTKJ: Tehtävä 3. Tallenna mittausarvo globaaliin muuttujaan
+        // JTKJ: Teht�v� 3. Tallenna mittausarvo globaaliin muuttujaan
         //       Muista tilamuutos
         // JTKJ: Exercise 3. Save the sensor value into the global variable
         //       Remember to modify state
 
         // Just for sanity check for exercise, you can comment this out
-        //System_printf("sensorTask\n");
-        //System_flush();
 
         // Once per second, you can modify this
         Task_sleep(1000000 / Clock_tickPeriod);
     }
+    I2C_close(i2c);
+    System_printf("System Flush\n");
+    System_flush();
 }
 
 Int main(void) {

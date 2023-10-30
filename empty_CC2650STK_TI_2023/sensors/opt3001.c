@@ -69,55 +69,52 @@ uint16_t opt3001_get_status(I2C_Handle *i2c) {
 double opt3001_get_data(I2C_Handle *i2c) {
 
     // JTKJ: Tehtävä 2. Muokkaa funktiota niin että se palauttaa mittausarvon lukseina
+    // JTKJ: Exercise 2. Complete this function to return the measured value as lux
 
-    double lux = -1.0; // return value of the function
+	double lux = -1.0; // return value of the function
     // JTKJ: Find out the correct buffer sizes (n) with this sensor?
 
-    // Lähetetään yksi tavu
-    uint8_t txBuffer[ 1 ];
-    // Vastaanotetaan kaksi tavua
-    uint8_t rxBuffer[ 2 ];
+    uint8_t txBuffer[1];
+    uint8_t rxBuffer[2];
 
-    // Koska rekisteri arvo on 16 bittinen niin tämän seurauksena vastaanotamme kaksi tavua eli kaksi 8 bittistä tavua
     // rxBuffer[1] sisältää yhden 8 bittisen tavun (MSB)
     // rxBuffer[2] sisältää toisen 8 bittisen tavun (LSB)
 
-    // JTKJ: Fill in the i2cMessage data structure with correct values
+
+	// JTKJ: Fill in the i2cMessage data structure with correct values
     //       as shown in the lecture material
     I2C_Transaction i2cMessage;
 
-    // i2c-viestirakenneS
+    // i2c-viestirakenne
     i2cMessage.slaveAddress = Board_OPT3001_ADDR;
-    txBuffer[0] = OPT3001_REG_RESULT; // Rekisterin osoite lähetyspuskuriin
+    txBuffer[0] = OPT3001_REG_RESULT;      // Rekisterin osoite lähetyspuskuriin
     i2cMessage.writeBuf = txBuffer; // Lähetyspuskurin asetus
     i2cMessage.writeCount = 1;      // Lähetetään 1 tavu
     i2cMessage.readBuf = rxBuffer;  // Vastaanottopuskurin asetus
     i2cMessage.readCount = 2;       // Vastaanotetaan 2 tavua
 
+	if (opt3001_get_status(i2c) & OPT3001_DATA_READY) {
 
-    if (opt3001_get_status(i2c) & OPT3001_DATA_READY) {
+		if (I2C_transfer(*i2c, &i2cMessage)) {
 
-        if (I2C_transfer(*i2c, &i2cMessage)) {
+	        // JTKJ: Here the conversion from register value to lux
+		    uint16_t rekisteri = (rxBuffer[0] << 8) | rxBuffer[1];
+		    // e[3:0]
+		    uint8_t eBits = (rekisteri & 0xF000) >> 12;
+		    // r[11:0]
+		    uint8_t rBits = (rekisteri & 0x0FFF);
+		    lux = 0.01 * pow(2, eBits) * rBits;
 
-	////// TARKISTA TÄMÄ KOHTA ///////
-            // JTKJ: Here the conversion from register value to lux
-            uint16_t rekisteri = (rxBuffer[1] << 8) | rxBuffer[2];
-            // e[3:0]
-            uint8_t eBits = (rekisteri & 0xF000) >> 12;
-            // r[11:0]
-            uint8_t rBits = (rekisteri & 0x0FFF);
-            lux = 0.01 * pow(2, eBits) * rBits;
+		} else {
 
-        } else {
+			System_printf("OPT3001: Data read failed!\n");
+			System_flush();
+		}
 
-            System_printf("OPT3001: Data read failed!\n");
-            System_flush();
-        }
+	} else {
+		System_printf("OPT3001: Data not ready!\n");
+		System_flush();
+	}
 
-    } else {
-        System_printf("OPT3001: Data not ready!\n");
-        System_flush();
-    }
-
-    return lux;
+	return lux;
 }

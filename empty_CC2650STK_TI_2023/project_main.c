@@ -117,8 +117,8 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         // JTKJ: Teht�v� 2. Lue sensorilta dataa ja tulosta se Debug-ikkunaan merkkijonona
         // JTKJ: Exercise 2. Read sensor data and print it to the Debug window as string
         if(programState == WAITING){
-            double lux = opt3001_get_data(&i2c);
-            sprintf(str,"Lux: %f\n", lux);
+            ambientLight = opt3001_get_data(&i2c);
+            sprintf(str,"Lux: %f\n", ambientLight);
             System_printf(str);
         }
 

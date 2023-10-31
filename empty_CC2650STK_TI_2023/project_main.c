@@ -67,22 +67,50 @@ void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
 /* Task Functions */
 Void uartTaskFxn(UArg arg0, UArg arg1) {
 
+    char str[100];
+
     // JTKJ: Tehtävä 4. Lisää UARTin alustus: 9600,8n1
+    UART_Handle uart;
+    UART_Params uartParams;
+
+    // Alustetaan sarjaliikenne
+    UART_Params_init(&uartParams);
+    uartParams.writeDataMode = UART_DATA_TEXT;
+    uartParams.readDataMode = UART_DATA_TEXT;
+    uartParams.readEcho = UART_ECHO_OFF;
+    uartParams.readMode= UART_MODE_BLOCKING;
+    uartParams.baudRate = 9600; // nopeus 9600baud
+    uartParams.dataLength = UART_LEN_8; // 8
+    uartParams.parityType = UART_PAR_NONE; // n
+    uartParams.stopBits = UART_STOP_ONE; // 1s
+
+    // Avataan yhteys laitteen sarjaporttiin vakiossa Board_UART0
+    uart = UART_open(Board_UART0, &uartParams);
+        if (uart == NULL) {
+            System_abort("Error opening the UART");
+    }
+
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
+
 
     while (1) {
 
         // JTKJ: Tehtävä 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
         //       Muista tilamuutos
+        if(programState == DATA_READY){
+            sprintf(str,"UART: %f\n", ambientLight);
+            System_printf(str);
+            programState = WAITING;
+        }
+        System_flush();
         // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
         //       Remember to modify state
 
         // JTKJ: Tehtävä 4. Lähetä sama merkkijono UARTilla
+
         // JTKJ: Exercise 4. Send the same sensor data string with UART
 
         // Just for sanity check for exercise, you can comment this out
-        System_printf("uartTask\n");
-        System_flush();
 
         // Once per second, you can modify this
         Task_sleep(1000000 / Clock_tickPeriod);
@@ -110,6 +138,7 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     opt3001_setup(&i2c);
     // JTKJ: Exercise 2. Setup the OPT3001 sensor for use
     //       Before calling the setup function, insertt 100ms delay with Task_sleep
+
     char str[100];
 
     while (1) {
@@ -120,8 +149,9 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
             ambientLight = opt3001_get_data(&i2c);
             sprintf(str,"Lux: %f\n", ambientLight);
             System_printf(str);
+            programState = DATA_READY;
         }
-
+        System_flush();
         // JTKJ: Teht�v� 3. Tallenna mittausarvo globaaliin muuttujaan
         //       Muista tilamuutos
         // JTKJ: Exercise 3. Save the sensor value into the global variable
@@ -130,6 +160,7 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         // Just for sanity check for exercise, you can comment this out
 
         // Once per second, you can modify this
+
         Task_sleep(1000000 / Clock_tickPeriod);
     }
     I2C_close(i2c);
@@ -154,6 +185,8 @@ Int main(void) {
     Board_initI2C();
     // JTKJ: Exercise 2. Initialize i2c bus
     // JTKJ: Tehtävä 4. Ota UART käyttöön ohjelmassa
+    // Otetaan sarjaportti käyttöön ohjelmassa
+    Board_initUART();
     // JTKJ: Exercise 4. Initialize UART
 
     // JTKJ: Tehtävä 1. Ota painonappi ja ledi ohjelman käyttöön. Muista rekisteröidä keskeytyksen käsittelijä painonapille

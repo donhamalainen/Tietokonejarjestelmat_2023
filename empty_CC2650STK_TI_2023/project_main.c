@@ -98,10 +98,10 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
         // JTKJ: Tehtävä 3. Kun tila on oikea, tulosta sensoridata merkkijonossa debug-ikkunaan
         //       Muista tilamuutos
         if(programState == DATA_READY){
-            sprintf(str,"UART: %f\n", ambientLight);
+            sprintf(str,"UART: %f\n\r", ambientLight);
             System_printf(str);
             programState = WAITING;
-
+        }
         // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
         //       Remember to modify state
 
@@ -113,7 +113,6 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
         System_flush();
         // Once per second, you can modify this
         Task_sleep(1000000 / Clock_tickPeriod);
-        }
     }
 }
 Void sensorTaskFxn(UArg arg0, UArg arg1) {

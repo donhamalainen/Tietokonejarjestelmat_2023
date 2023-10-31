@@ -101,22 +101,21 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
             sprintf(str,"UART: %f\n", ambientLight);
             System_printf(str);
             programState = WAITING;
-        }
-        System_flush();
+
         // JTKJ: Exercise 3. Print out sensor data as string to debug window if the state is correct
         //       Remember to modify state
 
         // JTKJ: Tehtävä 4. Lähetä sama merkkijono UARTilla
-
+        UART_write(uart, str, strlen(str));
         // JTKJ: Exercise 4. Send the same sensor data string with UART
 
         // Just for sanity check for exercise, you can comment this out
-
+        System_flush();
         // Once per second, you can modify this
         Task_sleep(1000000 / Clock_tickPeriod);
+        }
     }
 }
-
 Void sensorTaskFxn(UArg arg0, UArg arg1) {
 
     I2C_Handle      i2c;

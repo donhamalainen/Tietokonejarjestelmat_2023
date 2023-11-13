@@ -19,6 +19,7 @@
 
 /* Board Header files */
 #include "Board.h"
+#include "buzzer.h"
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
 
@@ -26,10 +27,17 @@
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
+Char speakerTaskStack[STACKSIZE];
 // MPU power pin global variables
 static PIN_Handle hMpuPin;
 static PIN_State  MpuPinState;
-
+// BUZZER
+static PIN_Handle hBuzzer;
+static PIN_State sBuzzer;
+PIN_Config cBuzzer[] = {
+  Board_BUZZER | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+  PIN_TERMINATE
+};
 // JTKJ: Tehtävä 3. Tilakoneen esittely
 // JTKJ: Exercise 3. Definition of the state machine
 enum state { WAITING=1, DATA_READY };
@@ -201,10 +209,33 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         programState = DATA_READY;
         // LOPPU ODOTUS
         Task_sleep(1000000 / Clock_tickPeriod);
+        }
     }
 }
-}
+    int melody[] = {
+        131, 262, 523, 1046, 523, 1046, 2093,
+        131, 262, 523, 1046, 523, 1046, 2093,
+        131, 262, 523, 1046, 523, 1046, 2093, 4186,
+        1568, 1568, 1568, 1396, 1568, 1396, 1244, 1174, 1046, 2093, 2093
+    };
 
+    int delays[] = {
+        300, 150, 300, 150, 300, 150, 300,
+        300, 150, 300, 150, 300, 150, 300,
+        300, 150, 300, 150, 300, 150, 300, 300,
+        150, 150, 150, 300, 150, 300, 150, 150, 150, 150, 300
+    };
+Void speakerFxn(UArg arg0, UArg arg1) {
+  int i = 0;
+  while (1) {
+    buzzerOpen(hBuzzer);
+    buzzerSetFrequency(5000);
+    Task_sleep(5000 / Clock_tickPeriod);
+    buzzerClose();
+    Task_sleep(950000 / Clock_tickPeriod);
+  }
+
+}
 
 Int main(void) {
 
@@ -213,6 +244,8 @@ Int main(void) {
     Task_Params sensorTaskParams;
     Task_Handle uartTaskHandle;
     Task_Params uartTaskParams;
+    Task_Handle speakerTaskHandle;
+    Task_Params speakerTaskParams;
 
     // Initialize board
     Board_initGeneral();
@@ -250,7 +283,11 @@ Int main(void) {
     if (hMpuPin == NULL) {
         System_abort("Pin open failed!");
     }
-
+    // Buzzer
+      hBuzzer = PIN_open(&sBuzzer, cBuzzer);
+      if (hBuzzer == NULL) {
+        System_abort("Pin open failed!");
+      }
     /* Task */
     Task_Params_init(&sensorTaskParams);
     sensorTaskParams.stackSize = STACKSIZE;
@@ -270,8 +307,16 @@ Int main(void) {
         System_abort("Task create failed!");
     }
 
+    Task_Params_init(&speakerTaskParams);
+    speakerTaskParams.stackSize = STACKSIZE;
+    speakerTaskParams.stack = &speakerTaskStack;
+    speakerTaskHandle = Task_create((Task_FuncPtr)speakerFxn, &speakerTaskParams, NULL);
+    if (speakerTaskHandle == NULL) {
+      System_abort("Task create failed!");
+    }
+
     /* Sanity check */
-    System_printf("Hello world!\n");
+    System_printf("Nice hair!\n");
     System_flush();
 
     /* Start BIOS */

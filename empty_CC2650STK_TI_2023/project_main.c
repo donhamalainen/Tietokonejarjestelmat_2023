@@ -23,6 +23,15 @@
 #include "sensors/mpu9250.h"
 
 /* Task */
+enum Actions {
+    EAT,
+    EXERCISE,
+    PET,
+    ACTIVATE,
+    IDLE
+};
+enum Actions action = IDLE;
+
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
@@ -38,7 +47,7 @@ enum state programState = WAITING;
 // JTKJ: Tehtävä 3. Valoisuuden globaali muuttuja
 // JTKJ: Exercise 3. Global variable for ambient light
 double ambientLight = -1000.0;
-char str[100], str1[100];
+char lux[100], eat[100], pet[100], exercise[100], activate[100];
 
 // JTKJ: Tehtävä 1. Lisää painonappien RTOS-muuttujat ja alustus
 
@@ -108,15 +117,44 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     }
 
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
-
-
+    // char lux[100], eat[100], pet[100], exercise[100], activate[100];
+    sprintf(eat, "id:%d,EAT:%d", 3232, 8);
+    sprintf(pet, "id:%d,PET:%d", 3232, 1);
+    sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
+    sprintf(activate, "id:%d,ACTIVATE:%d", 3232, 1);
     while (1) {
         if(programState == DATA_READY){
             // OPT
-            // UART_write(uart, str, strlen(str));
+            // UART_write(uart, ping, strlen(ping) + 1);
             // MPU
-            UART_write(uart, str1, strlen(str1));
+            switch(action){
+            case EAT:
+                 System_printf("EAT");
+                 UART_write(uart, eat, strlen(eat) + 1);
+                 break;
+            case PET:
+                 System_printf("PET");
+                 UART_write(uart, pet, strlen(pet) + 1);
+                 break;
+            case EXERCISE:
+                 System_printf("EXE");
+                 UART_write(uart, exercise, strlen(exercise) + 1);
+                 break;
+            case ACTIVATE:
+                 System_printf("ACT");
+                 UART_write(uart, activate, strlen(activate) + 1);
+                 break;
+            case IDLE:
+                 System_printf("IDLE");
+                 break;
+            default:
+                break;
+            }
+            action = IDLE;
+            UART_write(uart, lux, strlen(lux) + 1);
             programState = WAITING;
+
+
         }
 
        // LOPPU ODOTUS
@@ -169,7 +207,6 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     // WHILE
     while (1) {
         if(programState == WAITING){
-
         // OPT
         i2c = I2C_open(Board_I2C, &i2cParams);
             if (i2c == NULL) {
@@ -188,13 +225,15 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
         // MPU:n getData kutsu
         mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-        sprintf(str1,"\n%1.2f %1.2f %1.2f %1.2f %1.2f %1.2f\n\r",ax, ay, az, gx, gy, gz);
 
         if(ax >= 0.1 || ax <= -0.1){
-            System_printf("AX 0.1");
+            action = EXERCISE;
         }
         if(ay >= 0.1 || ay <= -0.1){
-            System_printf("AY 0.1");
+            action = EAT;
+        }
+        if(az <= -1.2){
+            action = PET;
         }
 
         I2C_close(i2cMPU);

@@ -212,29 +212,17 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
     }
 }
-    int melody[] = {
-        131, 262, 523, 1046, 523, 1046, 2093,
-        131, 262, 523, 1046, 523, 1046, 2093,
-        131, 262, 523, 1046, 523, 1046, 2093, 4186,
-        1568, 1568, 1568, 1396, 1568, 1396, 1244, 1174, 1046, 2093, 2093
-    };
 
-    int delays[] = {
-        300, 150, 300, 150, 300, 150, 300,
-        300, 150, 300, 150, 300, 150, 300,
-        300, 150, 300, 150, 300, 150, 300, 300,
-        150, 150, 150, 300, 150, 300, 150, 150, 150, 150, 300
-    };
 Void speakerFxn(UArg arg0, UArg arg1) {
-  int i = 0;
   while (1) {
     buzzerOpen(hBuzzer);
-    buzzerSetFrequency(5000);
+    buzzerSetFrequency(2000);
     Task_sleep(5000 / Clock_tickPeriod);
     buzzerClose();
+
+
     Task_sleep(950000 / Clock_tickPeriod);
   }
-
 }
 
 Int main(void) {

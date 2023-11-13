@@ -28,6 +28,16 @@
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
 Char speakerTaskStack[STACKSIZE];
+
+enum Actions {
+    EAT,
+    EXERCISE,
+    PET,
+    ACTIVATE,
+    IDLE
+};
+enum Actions action = IDLE;
+
 // MPU power pin global variables
 static PIN_Handle hMpuPin;
 static PIN_State  MpuPinState;
@@ -46,20 +56,29 @@ enum state programState = WAITING;
 // JTKJ: Tehtävä 3. Valoisuuden globaali muuttuja
 // JTKJ: Exercise 3. Global variable for ambient light
 double ambientLight = -1000.0;
-char str[100], str1[100];
+char lux[100], eat[100], pet[100], exercise[100], activate[100];
 
 // JTKJ: Tehtävä 1. Lisää painonappien RTOS-muuttujat ja alustus
 
 // RTOS:n muuttujat pinnien käyttöön
 static PIN_Handle buttonHandle;
 static PIN_State buttonState;
+static PIN_Handle buttonHandle_two;
+static PIN_State buttonState_two;
 static PIN_Handle ledHandle;
 static PIN_State ledState;
+static PIN_Handle ledHandle_two;
+static PIN_State ledState_two;
 
 // Pinnien alustukset, molemmille pinneille oma konfiguraatio
 // Vakio BOARD_BUTTON_0 vastaa toista painonappia
 PIN_Config buttonConfig[] = {
    Board_BUTTON0  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE,
+   PIN_TERMINATE
+};
+
+PIN_Config buttonConfig_two[] = {
+   Board_BUTTON1  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE,
    PIN_TERMINATE
 };
 
@@ -82,12 +101,25 @@ static const I2CCC26XX_I2CPinCfg i2cMPUCfg = {
 };
 
 
+void buttonFxnTwo(PIN_Handle handle, PIN_Id pinId) {
+
+    // JTKJ: Tehtävä 1. Vilkuta jompaa kumpaa lediä
+    uint_t pinValue_two = PIN_getOutputValue( Board_LED1 );
+    pinValue_two = !pinValue_two;
+    PIN_setOutputValue( ledHandle_two, Board_LED1, pinValue_two );
+    action = ACTIVATE;
+
+    // JTKJ: Exercise 1. Blink either led of the device
+}
+
+
 void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
 
     // JTKJ: Tehtävä 1. Vilkuta jompaa kumpaa lediä
     uint_t pinValue = PIN_getOutputValue( Board_LED0 );
     pinValue = !pinValue;
     PIN_setOutputValue( ledHandle, Board_LED0, pinValue );
+    action = ACTIVATE;
     // JTKJ: Exercise 1. Blink either led of the device
 }
 
@@ -117,14 +149,42 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
 
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
 
+    sprintf(eat, "id:%d,EAT:%d", 3232, 4);
+    sprintf(pet, "id:%d,PET:%d", 3232, 2);
+    sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
+    sprintf(activate, "id:%d,ACTIVATE:%d;%d;%d", 3232, 1,2,3);
 
     while (1) {
         if(programState == DATA_READY){
             // OPT
             // UART_write(uart, str, strlen(str));
             // MPU
-            UART_write(uart, str1, strlen(str1));
-            programState = WAITING;
+            switch(action){
+                       case EAT:
+                            System_printf("EAT");
+                            UART_write(uart, eat, strlen(eat) + 1);
+                            break;
+                       case PET:
+                            System_printf("PET");
+                            UART_write(uart, pet, strlen(pet) + 1);
+                            break;
+                       case EXERCISE:
+                            System_printf("EXE");
+                            UART_write(uart, exercise, strlen(exercise) + 1);
+                            break;
+                       case ACTIVATE:
+                            System_printf("ACT");
+                            UART_write(uart, activate, strlen(activate) + 1);
+                            break;
+                       case IDLE:
+                            System_printf("IDLE");
+                            break;
+                       default:
+                           break;
+                       }
+                       action = IDLE;
+                       // UART_write(uart, lux, strlen(lux) + 1);
+                       programState = WAITING;
         }
 
        // LOPPU ODOTUS
@@ -196,14 +256,16 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
         // MPU:n getData kutsu
         mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-        sprintf(str1,"\n%1.2f %1.2f %1.2f %1.2f %1.2f %1.2f\n\r",ax, ay, az, gx, gy, gz);
 
-        if(ax >= 0.1 || ax <= -0.1){
-            System_printf("AX 0.1");
-        }
-        if(ay >= 0.1 || ay <= -0.1){
-            System_printf("AY 0.1");
-        }
+        if(ax >= 0.2 || ax <= -0.2){
+                   action = EXERCISE;
+               }
+               if(ay >= 0.2 || ay <= -0.2){
+                   action = EAT;
+               }
+               if(az <= -1.2 || az >= 0.8){
+                           action = PET;
+               }
 
         I2C_close(i2cMPU);
         programState = DATA_READY;
@@ -257,13 +319,18 @@ Int main(void) {
 
     // Painonappi käyttöön ohjelmassa
     buttonHandle = PIN_open(&buttonState, buttonConfig);
-    if(!buttonHandle) {
+    buttonHandle_two = PIN_open(&buttonState_two, buttonConfig_two);
+
+    if(!buttonHandle || !buttonHandle_two) {
        System_abort("Error initializing button pin\n");
     }
 
     // Painonapille keskeytyksen käsittellijä
     if (PIN_registerIntCb(buttonHandle, &buttonFxn) != 0) {
        System_abort("Error registering button callback function");
+    }
+    if (PIN_registerIntCb(buttonHandle_two, &buttonFxnTwo) != 0) {
+             System_abort("Error registering button callback function");
     }
 
     // Open MPU power pin

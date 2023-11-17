@@ -34,7 +34,8 @@ enum Actions {
     EXERCISE,
     PET,
     ACTIVATE,
-    IDLE
+    IDLE,
+    SLEEP
 };
 enum Actions action = IDLE;
 
@@ -56,7 +57,7 @@ enum state programState = WAITING;
 // JTKJ: Tehtävä 3. Valoisuuden globaali muuttuja
 // JTKJ: Exercise 3. Global variable for ambient light
 double ambientLight = -1000.0;
-char lux[100], eat[100], pet[100], exercise[100], activate[100];
+char lux[100], eat[100], pet[100], exercise[100], activate[100], sleep[100], uartRead[100];
 
 // JTKJ: Tehtävä 1. Lisää painonappien RTOS-muuttujat ja alustus
 
@@ -87,6 +88,11 @@ PIN_Config ledConfig[] = {
    Board_LED0 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
    PIN_TERMINATE
 };
+PIN_Config ledConfig_two[] = {
+   Board_LED1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+   PIN_TERMINATE
+};
+
 
 // MPU power pin
 static PIN_Config MpuPinConfig[] = {
@@ -107,7 +113,7 @@ void buttonFxnTwo(PIN_Handle handle, PIN_Id pinId) {
     uint_t pinValue_two = PIN_getOutputValue( Board_LED1 );
     pinValue_two = !pinValue_two;
     PIN_setOutputValue( ledHandle_two, Board_LED1, pinValue_two );
-    action = ACTIVATE;
+    action = PET;
 
     // JTKJ: Exercise 1. Blink either led of the device
 }
@@ -148,16 +154,18 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     }
 
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
-
+    char ping[100];
     sprintf(eat, "id:%d,EAT:%d", 3232, 4);
     sprintf(pet, "id:%d,PET:%d", 3232, 2);
     sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
     sprintf(activate, "id:%d,ACTIVATE:%d;%d;%d", 3232, 1,2,3);
+    sprintf(sleep, "id:%d,MSG1:It is so dark...", 3232);
+    //sprintf(ping, "id:%d,ping", 3232);
 
     while (1) {
         if(programState == DATA_READY){
             // OPT
-            // UART_write(uart, str, strlen(str));
+            // UART_write(uart, ping, strlen(ping) + 1);
             // MPU
             switch(action){
                        case EAT:
@@ -179,6 +187,10 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
                        case IDLE:
                             System_printf("IDLE");
                             break;
+                       case SLEEP:
+                            System_printf("SLEEP");
+                            UART_write(uart, sleep, strlen(activate) + 1);
+                            break;
                        default:
                            break;
                        }
@@ -187,6 +199,8 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
                        programState = WAITING;
         }
 
+       // UART_read(uart, uartRead, sizeof(uartRead));
+       // System_printf("The UART read %d bytes\n", uartRead);
        // LOPPU ODOTUS
        Task_sleep(1000000 / Clock_tickPeriod);
     }
@@ -233,7 +247,6 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     I2C_close(i2cMPU);
     System_printf("MPU9250: Setup and calibration OK\n");
     System_flush();
-
     // WHILE
     while (1) {
         if(programState == WAITING){
@@ -245,6 +258,10 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
         ambientLight = opt3001_get_data(&i2c);
 
+        if (ambientLight < 100) {
+            action = SLEEP;
+        }
+
 
 
         I2C_close(i2c);
@@ -254,17 +271,19 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
             if (i2cMPU == NULL) {
                 System_abort("Error Initializing I2CMPU\n");
         }
-        // MPU:n getData kutsu
+        // MPU:n getData kutsu40
         mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-
-        if(ax >= 0.2 || ax <= -0.2){
+               //sprintf(str, "GX: %f ja GY: %f\n", gx, gy);
+               //System_printf(str);
+               //System_flush();
+               if(ax >= 0.2 || ax <= -0.2){
                    action = EXERCISE;
                }
                if(ay >= 0.2 || ay <= -0.2){
                    action = EAT;
                }
                if(az <= -1.2 || az >= 0.8){
-                           action = PET;
+                         //  action = PET;
                }
 
         I2C_close(i2cMPU);
@@ -276,15 +295,14 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
 }
 
 Void speakerFxn(UArg arg0, UArg arg1) {
-  while (1) {
-    buzzerOpen(hBuzzer);
-    buzzerSetFrequency(2000);
-    Task_sleep(5000 / Clock_tickPeriod);
-    buzzerClose();
+    while (1) {
+        buzzerOpen(hBuzzer);
+        buzzerSetFrequency(2000);
+        Task_sleep(50000 / Clock_tickPeriod);
+        buzzerClose();
 
-
-    Task_sleep(950000 / Clock_tickPeriod);
-  }
+        Task_sleep(950000 / Clock_tickPeriod);
+      }
 }
 
 Int main(void) {
@@ -297,7 +315,7 @@ Int main(void) {
     Task_Handle speakerTaskHandle;
     Task_Params speakerTaskParams;
 
-    // Initialize board
+    // Initialize board40
     Board_initGeneral();
 
 
@@ -313,7 +331,8 @@ Int main(void) {
     // Ledi käyttöön ohjelmassa
 
     ledHandle = PIN_open( &ledState, ledConfig );
-    if(!ledHandle) {
+    ledHandle_two = PIN_open( &ledState_two, ledConfig_two );
+    if(!ledHandle || !ledHandle_two) {
        System_abort("Error initializing LED pin\n");
     }
 
@@ -344,6 +363,14 @@ Int main(void) {
         System_abort("Pin open failed!");
       }
     /* Task */
+    Task_Params_init(&speakerTaskParams);
+    speakerTaskParams.stackSize = STACKSIZE;
+    speakerTaskParams.stack = &speakerTaskStack;
+    speakerTaskHandle = Task_create((Task_FuncPtr)speakerFxn, &speakerTaskParams, NULL);
+    if (speakerTaskHandle == NULL) {
+        System_abort("Task create failed!");
+    }
+
     Task_Params_init(&sensorTaskParams);
     sensorTaskParams.stackSize = STACKSIZE;
     sensorTaskParams.stack = &sensorTaskStack;
@@ -360,14 +387,6 @@ Int main(void) {
     uartTaskHandle = Task_create(uartTaskFxn, &uartTaskParams, NULL);
     if (uartTaskHandle == NULL) {
         System_abort("Task create failed!");
-    }
-
-    Task_Params_init(&speakerTaskParams);
-    speakerTaskParams.stackSize = STACKSIZE;
-    speakerTaskParams.stack = &speakerTaskStack;
-    speakerTaskHandle = Task_create((Task_FuncPtr)speakerFxn, &speakerTaskParams, NULL);
-    if (speakerTaskHandle == NULL) {
-      System_abort("Task create failed!");
     }
 
     /* Sanity check */

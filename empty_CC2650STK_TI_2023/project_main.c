@@ -23,6 +23,10 @@
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
 
+/* RANDOM GENERATOR */
+#include <time.h>
+#include <stdlib.h>
+
 /* Task */
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
@@ -39,29 +43,19 @@ enum Actions {
 };
 enum Actions action = IDLE;
 
-// MPU power pin global variables
+enum state { WAITING=1, DATA_READY };
+enum state programState = WAITING;
+// GLOBALS VAR
+double ambientLight = -1000.0;
+char lux[100], eat[100], pet[100], exercise[100], activate[100], sleep[100], uartRead[100];
+
+// MPU
 static PIN_Handle hMpuPin;
 static PIN_State  MpuPinState;
 // BUZZER
 static PIN_Handle hBuzzer;
 static PIN_State sBuzzer;
-PIN_Config cBuzzer[] = {
-  Board_BUZZER | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-  PIN_TERMINATE
-};
-// JTKJ: Tehtävä 3. Tilakoneen esittely
-// JTKJ: Exercise 3. Definition of the state machine
-enum state { WAITING=1, DATA_READY };
-enum state programState = WAITING;
-
-// JTKJ: Tehtävä 3. Valoisuuden globaali muuttuja
-// JTKJ: Exercise 3. Global variable for ambient light
-double ambientLight = -1000.0;
-char lux[100], eat[100], pet[100], exercise[100], activate[100], sleep[100], uartRead[100];
-
-// JTKJ: Tehtävä 1. Lisää painonappien RTOS-muuttujat ja alustus
-
-// RTOS:n muuttujat pinnien käyttöön
+// BUTTONS
 static PIN_Handle buttonHandle;
 static PIN_State buttonState;
 static PIN_Handle buttonHandle_two;
@@ -71,19 +65,19 @@ static PIN_State ledState;
 static PIN_Handle ledHandle_two;
 static PIN_State ledState_two;
 
-// Pinnien alustukset, molemmille pinneille oma konfiguraatio
-// Vakio BOARD_BUTTON_0 vastaa toista painonappia
+// CONFIG
+PIN_Config cBuzzer[] = {
+  Board_BUZZER | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+  PIN_TERMINATE
+};
 PIN_Config buttonConfig[] = {
    Board_BUTTON0  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE,
    PIN_TERMINATE
 };
-
 PIN_Config buttonConfig_two[] = {
    Board_BUTTON1  | PIN_INPUT_EN | PIN_PULLUP | PIN_IRQ_NEGEDGE,
    PIN_TERMINATE
 };
-
-// Vakio Board_LED0 vastaa toista lediä
 PIN_Config ledConfig[] = {
    Board_LED0 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
    PIN_TERMINATE
@@ -93,46 +87,38 @@ PIN_Config ledConfig_two[] = {
    PIN_TERMINATE
 };
 
-
-// MPU power pin
 static PIN_Config MpuPinConfig[] = {
     Board_MPU_POWER  | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     PIN_TERMINATE
 };
-
-// MPU uses its own I2C interface
 static const I2CCC26XX_I2CPinCfg i2cMPUCfg = {
     .pinSDA = Board_I2C0_SDA1,
     .pinSCL = Board_I2C0_SCL1
 };
 
 
-void buttonFxnTwo(PIN_Handle handle, PIN_Id pinId) {
+///////////////////////////////////
+// FUNCTIONS
+///////////////////////////////////
 
-    // JTKJ: Tehtävä 1. Vilkuta jompaa kumpaa lediä
+// Buttons, where buttonTwo is RED LED and button is GREEN LED
+void buttonFxnTwo(PIN_Handle handle, PIN_Id pinId) {
     uint_t pinValue_two = PIN_getOutputValue( Board_LED1 );
     pinValue_two = !pinValue_two;
     PIN_setOutputValue( ledHandle_two, Board_LED1, pinValue_two );
+    // ACT
     action = PET;
-
-    // JTKJ: Exercise 1. Blink either led of the device
 }
-
-
 void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
-
-    // JTKJ: Tehtävä 1. Vilkuta jompaa kumpaa lediä
     uint_t pinValue = PIN_getOutputValue( Board_LED0 );
     pinValue = !pinValue;
     PIN_setOutputValue( ledHandle, Board_LED0, pinValue );
+    // ACT
     action = ACTIVATE;
-    // JTKJ: Exercise 1. Blink either led of the device
 }
 
-/* Task Functions */
-Void uartTaskFxn(UArg arg0, UArg arg1) {
 
-    // JTKJ: Tehtävä 4. Lisää UARTin alustus: 9600,8n1
+Void uartTaskFxn(UArg arg0, UArg arg1) {
     UART_Handle uart;
     UART_Params uartParams;
 
@@ -154,14 +140,12 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     }
 
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
-    char ping[100];
     sprintf(eat, "id:%d,EAT:%d", 3232, 4);
     sprintf(pet, "id:%d,PET:%d", 3232, 2);
     sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
     sprintf(activate, "id:%d,ACTIVATE:%d;%d;%d", 3232, 1,2,3);
-    sprintf(sleep, "id:%d,MSG1:It is so dark...", 3232);
-    //sprintf(ping, "id:%d,ping", 3232);
-
+    sprintf(sleep, "id:%d,MSG1:I go sleep,PET:%d", 3232,2);
+    bool statement = true;
     while (1) {
         if(programState == DATA_READY){
             // OPT
@@ -169,38 +153,43 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
             // MPU
             switch(action){
                        case EAT:
-                            System_printf("EAT");
+                            System_printf("EAT\n");
                             UART_write(uart, eat, strlen(eat) + 1);
+
                             break;
                        case PET:
-                            System_printf("PET");
+                            System_printf("PET\n");
                             UART_write(uart, pet, strlen(pet) + 1);
+
                             break;
                        case EXERCISE:
-                            System_printf("EXE");
+                            System_printf("EXE\n");
                             UART_write(uart, exercise, strlen(exercise) + 1);
+
                             break;
                        case ACTIVATE:
-                            System_printf("ACT");
+                            System_printf("ACT\n");
                             UART_write(uart, activate, strlen(activate) + 1);
+
                             break;
                        case IDLE:
-                            System_printf("IDLE");
+
+                                System_printf("IDLE\n");
+
                             break;
                        case SLEEP:
-                            System_printf("SLEEP");
+                            System_printf("SLEEP\n");
                             UART_write(uart, sleep, strlen(activate) + 1);
+
                             break;
                        default:
+                           action = IDLE;
+
                            break;
                        }
-                       action = IDLE;
-                       // UART_write(uart, lux, strlen(lux) + 1);
+
                        programState = WAITING;
         }
-
-       // UART_read(uart, uartRead, sizeof(uartRead));
-       // System_printf("The UART read %d bytes\n", uartRead);
        // LOPPU ODOTUS
        Task_sleep(1000000 / Clock_tickPeriod);
     }
@@ -247,7 +236,8 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
     I2C_close(i2cMPU);
     System_printf("MPU9250: Setup and calibration OK\n");
     System_flush();
-    // WHILE
+
+
     while (1) {
         if(programState == WAITING){
 
@@ -258,24 +248,21 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
         ambientLight = opt3001_get_data(&i2c);
 
-        if (ambientLight < 100) {
+        if (ambientLight < 50) {
             action = SLEEP;
         }
 
 
 
         I2C_close(i2c);
-        Task_sleep(800000 / Clock_tickPeriod);
+        Task_sleep(100000 / Clock_tickPeriod);
         // MPU
         i2cMPU = I2C_open(Board_I2C, &i2cMPUParams);
             if (i2cMPU == NULL) {
                 System_abort("Error Initializing I2CMPU\n");
         }
-        // MPU:n getData kutsu40
+        // MPU:n getData kutsu
         mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-               //sprintf(str, "GX: %f ja GY: %f\n", gx, gy);
-               //System_printf(str);
-               //System_flush();
                if(ax >= 0.2 || ax <= -0.2){
                    action = EXERCISE;
                }
@@ -306,8 +293,10 @@ Void speakerFxn(UArg arg0, UArg arg1) {
 }
 
 Int main(void) {
+    ///////////////////////////////////
+    // VARIABLES
+    ///////////////////////////////////
 
-    // Task variables
     Task_Handle sensorTaskHandle;
     Task_Params sensorTaskParams;
     Task_Handle uartTaskHandle;
@@ -315,36 +304,28 @@ Int main(void) {
     Task_Handle speakerTaskHandle;
     Task_Params speakerTaskParams;
 
-    // Initialize board40
+    ///////////////////////////////////
+    // INIT
+    ///////////////////////////////////
+
     Board_initGeneral();
-
-
-    // JTKJ: Tehtävä 2. Ota i2c-väylä käyttöön ohjelmassa
     Board_initI2C();
-    // JTKJ: Exercise 2. Initialize i2c bus
-    // JTKJ: Tehtävä 4. Ota UART käyttöön ohjelmassa
-    // Otetaan sarjaportti käyttöön ohjelmassa
     Board_initUART();
-    // JTKJ: Exercise 4. Initialize UART
 
-    // JTKJ: Tehtävä 1. Ota painonappi ja ledi ohjelman käyttöön. Muista rekisteröidä keskeytyksen käsittelijä painonapille
-    // Ledi käyttöön ohjelmassa
+    ///////////////////////////////////
+    // BUTTONS
+    ///////////////////////////////////
 
     ledHandle = PIN_open( &ledState, ledConfig );
     ledHandle_two = PIN_open( &ledState_two, ledConfig_two );
     if(!ledHandle || !ledHandle_two) {
        System_abort("Error initializing LED pin\n");
     }
-
-    // Painonappi käyttöön ohjelmassa
     buttonHandle = PIN_open(&buttonState, buttonConfig);
     buttonHandle_two = PIN_open(&buttonState_two, buttonConfig_two);
-
     if(!buttonHandle || !buttonHandle_two) {
        System_abort("Error initializing button pin\n");
     }
-
-    // Painonapille keskeytyksen käsittellijä
     if (PIN_registerIntCb(buttonHandle, &buttonFxn) != 0) {
        System_abort("Error registering button callback function");
     }
@@ -352,17 +333,25 @@ Int main(void) {
              System_abort("Error registering button callback function");
     }
 
-    // Open MPU power pin
+    ///////////////////////////////////
+    // MPU
+    ///////////////////////////////////
+
     hMpuPin = PIN_open(&MpuPinState, MpuPinConfig);
     if (hMpuPin == NULL) {
         System_abort("Pin open failed!");
     }
-    // Buzzer
-      hBuzzer = PIN_open(&sBuzzer, cBuzzer);
-      if (hBuzzer == NULL) {
+    ///////////////////////////////////
+    // BUZZER
+    ///////////////////////////////////
+    hBuzzer = PIN_open(&sBuzzer, cBuzzer);
+    if (hBuzzer == NULL) {
         System_abort("Pin open failed!");
-      }
-    /* Task */
+    }
+
+    ///////////////////////////////////
+    // TASKS
+    ///////////////////////////////////
     Task_Params_init(&speakerTaskParams);
     speakerTaskParams.stackSize = STACKSIZE;
     speakerTaskParams.stack = &speakerTaskStack;
@@ -389,12 +378,11 @@ Int main(void) {
         System_abort("Task create failed!");
     }
 
-    /* Sanity check */
     System_printf("Nice hair!\n");
     System_flush();
 
-    /* Start BIOS */
     BIOS_start();
 
     return (0);
 }
+

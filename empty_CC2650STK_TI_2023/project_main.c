@@ -1,5 +1,10 @@
 /* C Standard library */
 #include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+/* RANDOM GENERATOR */
+#include <time.h>
+#include <stdlib.h>
 
 /* XDCtools files */
 #include <xdc/std.h>
@@ -23,15 +28,13 @@
 #include "sensors/opt3001.h"
 #include "sensors/mpu9250.h"
 
-/* RANDOM GENERATOR */
-#include <time.h>
-#include <stdlib.h>
 
 /* Task */
 #define STACKSIZE 2048
 Char sensorTaskStack[STACKSIZE];
 Char uartTaskStack[STACKSIZE];
 Char speakerTaskStack[STACKSIZE];
+uint8_t uartBuffer[80];
 
 enum Actions {
     EAT,
@@ -48,7 +51,15 @@ enum state programState = WAITING;
 // GLOBALS VAR
 double ambientLight = -1000.0;
 char lux[100], eat[100], pet[100], exercise[100], activate[100], sleep[100], uartRead[100];
-
+char* myID = "3232";
+const char *beepMSG[6] = {
+  "Too late, you need to take better care of me next time", // DEAD
+  "Calm down, I just cannot eat that much", // FOOD
+  "I could use a scratch", // HAPPINESS
+  "Too fitness, I need a moment", // EXERCISE
+  "Running low on food", // FOOD
+  "Severe warning about my wellbeing" // HEALTY
+};
 // MPU
 static PIN_Handle hMpuPin;
 static PIN_State  MpuPinState;
@@ -108,6 +119,9 @@ void buttonFxnTwo(PIN_Handle handle, PIN_Id pinId) {
     PIN_setOutputValue( ledHandle_two, Board_LED1, pinValue_two );
     // ACT
     action = PET;
+
+    //Task_sleep(1000000 / Clock_tickPeriod);
+    //PIN_setOutputValue( ledHandle_two, Board_LED1, 0);
 }
 void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
     uint_t pinValue = PIN_getOutputValue( Board_LED0 );
@@ -115,6 +129,25 @@ void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
     PIN_setOutputValue( ledHandle, Board_LED0, pinValue );
     // ACT
     action = ACTIVATE;
+}
+
+void uartReadMessageCompare(){
+    int i;
+    for(i = 0; i <= sizeof(beepMSG); i++){
+        if(strstr(uartRead, beepMSG[i]) != 0){
+            System_printf("%s", beepMSG[i]);
+            System_flush();
+            break;
+        }
+    }
+}
+static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) {
+   // Käsittelijän viimeisenä asiana siirrytään odottamaan uutta keskeytystä..
+   if(strstr(rxBuf, myID) != 0){
+       sprintf(uartRead, "%s", rxBuf);
+       // uartReadMessageCompare();
+   }
+   UART_read(handle, rxBuf, 80);
 }
 
 
@@ -127,7 +160,9 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     uartParams.writeDataMode = UART_DATA_TEXT;
     uartParams.readDataMode = UART_DATA_TEXT;
     uartParams.readEcho = UART_ECHO_OFF;
-    uartParams.readMode= UART_MODE_BLOCKING;
+    //uartParams.readMode= UART_MODE_BLOCKING;
+    uartParams.readMode      = UART_MODE_CALLBACK; // Keskeytyspohjainen vastaanotto
+    uartParams.readCallback  = &uartFxn; // Käsittelijäfunktio
     uartParams.baudRate = 9600; // nopeus 9600baud
     uartParams.dataLength = UART_LEN_8; // 8
     uartParams.parityType = UART_PAR_NONE; // n
@@ -139,13 +174,14 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
             System_abort("Error opening the UART");
     }
 
+    UART_read(uart, uartBuffer, 80);
+
     // JTKJ: Exercise 4. Setup here UART connection as 9600,8n1
     sprintf(eat, "id:%d,EAT:%d", 3232, 4);
     sprintf(pet, "id:%d,PET:%d", 3232, 2);
     sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
     sprintf(activate, "id:%d,ACTIVATE:%d;%d;%d", 3232, 1,2,3);
-    sprintf(sleep, "id:%d,MSG1:I go sleep,PET:%d", 3232,2);
-    bool statement = true;
+    sprintf(sleep, "id:%d,MSG1:I go sleep,PET:%d\0", 3232,2);
     while (1) {
         if(programState == DATA_READY){
             // OPT
@@ -155,36 +191,28 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
                        case EAT:
                             System_printf("EAT\n");
                             UART_write(uart, eat, strlen(eat) + 1);
-
                             break;
                        case PET:
                             System_printf("PET\n");
                             UART_write(uart, pet, strlen(pet) + 1);
-
                             break;
                        case EXERCISE:
                             System_printf("EXE\n");
                             UART_write(uart, exercise, strlen(exercise) + 1);
-
                             break;
                        case ACTIVATE:
                             System_printf("ACT\n");
                             UART_write(uart, activate, strlen(activate) + 1);
-
                             break;
                        case IDLE:
-
-                                System_printf("IDLE\n");
-
+                            System_printf("IDLE\n");
                             break;
                        case SLEEP:
                             System_printf("SLEEP\n");
                             UART_write(uart, sleep, strlen(activate) + 1);
-
                             break;
                        default:
                            action = IDLE;
-
                            break;
                        }
 
@@ -282,14 +310,14 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
 }
 
 Void speakerFxn(UArg arg0, UArg arg1) {
-    while (1) {
+
         buzzerOpen(hBuzzer);
         buzzerSetFrequency(2000);
         Task_sleep(50000 / Clock_tickPeriod);
         buzzerClose();
 
         Task_sleep(950000 / Clock_tickPeriod);
-      }
+
 }
 
 Int main(void) {

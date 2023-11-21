@@ -42,7 +42,7 @@ enum Actions {
     PET,
     ACTIVATE,
     IDLE,
-    SLEEP
+    SEND
 };
 enum Actions action = IDLE;
 
@@ -50,7 +50,7 @@ enum state { WAITING=1, DATA_READY };
 enum state programState = WAITING;
 // GLOBALS VAR
 double ambientLight = -1000.0;
-char lux[100], eat[100], pet[100], exercise[100], activate[100], sleep[100], uartRead[100];
+char lux[100], eat[100], pet[100], exercise[100], activate[100], send[100], uartRead[100];
 char* myID = "3232";
 const char *beepMSG[6] = {
   "Too late, you need to take better care of me next time", // DEAD
@@ -181,7 +181,8 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     sprintf(pet, "id:%d,PET:%d", 3232, 2);
     sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
     sprintf(activate, "id:%d,ACTIVATE:%d;%d;%d", 3232, 1,2,3);
-    sprintf(sleep, "id:%d,MSG1:I go sleep,PET:%d\0", 3232,2);
+    sprintf(send, "id:%d,MSG1:It's so bright here,PET:%d\0", 3232,2);
+    bool statement = true;
     while (1) {
         if(programState == DATA_READY){
             // OPT
@@ -191,31 +192,38 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
                        case EAT:
                             System_printf("EAT\n");
                             UART_write(uart, eat, strlen(eat) + 1);
+                            statement = true;
                             break;
                        case PET:
                             System_printf("PET\n");
                             UART_write(uart, pet, strlen(pet) + 1);
+                            statement = true;
                             break;
                        case EXERCISE:
                             System_printf("EXE\n");
                             UART_write(uart, exercise, strlen(exercise) + 1);
+                            statement = true;
                             break;
                        case ACTIVATE:
                             System_printf("ACT\n");
                             UART_write(uart, activate, strlen(activate) + 1);
+                            statement = true;
                             break;
                        case IDLE:
-                            System_printf("IDLE\n");
+                            if(statement) {
+                               System_printf("IDLE\n");
+                               statement = false;
+                            }
                             break;
-                       case SLEEP:
-                            System_printf("SLEEP\n");
-                            UART_write(uart, sleep, strlen(activate) + 1);
+                       case SEND:
+                            System_printf("MSG\n");
+                            UART_write(uart, send, strlen(send) + 1);
+                            statement = true;
                             break;
                        default:
-                           action = IDLE;
                            break;
                        }
-
+                       action = IDLE;
                        programState = WAITING;
         }
        // LOPPU ODOTUS
@@ -276,8 +284,8 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
         ambientLight = opt3001_get_data(&i2c);
 
-        if (ambientLight < 50) {
-            action = SLEEP;
+        if (ambientLight >= 150) {
+            action = SEND;
         }
 
 
@@ -308,15 +316,154 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
     }
 }
+void deadMusic(){
+    buzzerSetFrequency(784);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(392);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(784);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(1568);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(392);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(784);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(1568);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(2093);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(1568);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(784);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(392);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(196);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(784);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(392);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(784);
+    Task_sleep(100000 / Clock_tickPeriod);
+
+    buzzerSetFrequency(0);
+    Task_sleep(50000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(1569);
+      Task_sleep(100000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(0);
+      Task_sleep(50000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(784);
+      Task_sleep(100000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(0);
+      Task_sleep(50000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(392);
+      Task_sleep(100000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(0);
+      Task_sleep(50000 / Clock_tickPeriod);
+
+      buzzerSetFrequency(196);
+        Task_sleep(100000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(0);
+          Task_sleep(50000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(392);
+          Task_sleep(100000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(0);
+          Task_sleep(50000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(784);
+          Task_sleep(100000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(0);
+          Task_sleep(50000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(1569);
+          Task_sleep(100000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(0);
+          Task_sleep(50000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(2093);
+          Task_sleep(100000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(0);
+          Task_sleep(50000 / Clock_tickPeriod);
+
+          buzzerSetFrequency(0);
+}
 
 Void speakerFxn(UArg arg0, UArg arg1) {
 
         buzzerOpen(hBuzzer);
-        buzzerSetFrequency(2000);
-        Task_sleep(50000 / Clock_tickPeriod);
+        deadMusic();
         buzzerClose();
-
-        Task_sleep(950000 / Clock_tickPeriod);
+        Task_sleep(200000L / Clock_tickPeriod);
 
 }
 

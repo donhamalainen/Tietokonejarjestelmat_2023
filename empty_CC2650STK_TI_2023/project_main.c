@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
 /* RANDOM GENERATOR */
 #include <time.h>
 #include <stdlib.h>
@@ -42,23 +43,25 @@ enum Actions {
     PET,
     ACTIVATE,
     IDLE,
-    SEND
+    SEND,
+    SEND_TWO,
 };
 enum Actions action = IDLE;
+
+enum musicState {
+    DEAD,
+    ALIVE
+};
+enum musicState isAlive = ALIVE;
 
 enum state { WAITING=1, DATA_READY };
 enum state programState = WAITING;
 // GLOBALS VAR
 double ambientLight = -1000.0;
-char lux[100], eat[100], pet[100], exercise[100], activate[100], send[100], uartRead[100];
+char lux[100], eat[100], pet[100], exercise[100], activate[100], send[100], sendTwo[100], uartRead[100];
 char* myID = "3232";
-const char *beepMSG[6] = {
-  "Too late, you need to take better care of me next time", // DEAD
-  "Calm down, I just cannot eat that much", // FOOD
-  "I could use a scratch", // HAPPINESS
-  "Too fitness, I need a moment", // EXERCISE
-  "Running low on food", // FOOD
-  "Severe warning about my wellbeing" // HEALTY
+const char *beepMSG[1] = {
+  "3232,BEEP:Too late, you need to take better care of me next time" // DEAD
 };
 // MPU
 static PIN_Handle hMpuPin;
@@ -119,9 +122,6 @@ void buttonFxnTwo(PIN_Handle handle, PIN_Id pinId) {
     PIN_setOutputValue( ledHandle_two, Board_LED1, pinValue_two );
     // ACT
     action = PET;
-
-    //Task_sleep(1000000 / Clock_tickPeriod);
-    //PIN_setOutputValue( ledHandle_two, Board_LED1, 0);
 }
 void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
     uint_t pinValue = PIN_getOutputValue( Board_LED0 );
@@ -133,10 +133,9 @@ void buttonFxn(PIN_Handle handle, PIN_Id pinId) {
 
 void uartReadMessageCompare(){
     int i;
-    for(i = 0; i <= sizeof(beepMSG); i++){
-        if(strstr(uartRead, beepMSG[i]) != 0){
-            System_printf("%s", beepMSG[i]);
-            System_flush();
+    for(i = 0; i <= 1; i++){
+        if(strncmp(uartRead, beepMSG[i], 18) == 0){
+            isAlive = DEAD;
             break;
         }
     }
@@ -145,7 +144,7 @@ static void uartFxn(UART_Handle handle, void *rxBuf, size_t len) {
    // Käsittelijän viimeisenä asiana siirrytään odottamaan uutta keskeytystä..
    if(strstr(rxBuf, myID) != 0){
        sprintf(uartRead, "%s", rxBuf);
-       // uartReadMessageCompare();
+       uartReadMessageCompare();
    }
    UART_read(handle, rxBuf, 80);
 }
@@ -182,6 +181,7 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
     sprintf(exercise, "id:%d,EXERCISE:%d", 3232, 2);
     sprintf(activate, "id:%d,ACTIVATE:%d;%d;%d", 3232, 1,2,3);
     sprintf(send, "id:%d,MSG1:It's so bright here,PET:%d\0", 3232,2);
+    sprintf(sendTwo, "id:%d,MSG2:Weeeeeeeee! :D\0", 3232,2);
     bool statement = true;
     while (1) {
         if(programState == DATA_READY){
@@ -220,6 +220,11 @@ Void uartTaskFxn(UArg arg0, UArg arg1) {
                             UART_write(uart, send, strlen(send) + 1);
                             statement = true;
                             break;
+                       case SEND_TWO:
+                           System_printf("MSG2\n");
+                           UART_write(uart, sendTwo, strlen(sendTwo) + 1);
+                           statement = true;
+                           break;
                        default:
                            break;
                        }
@@ -299,15 +304,17 @@ Void sensorTaskFxn(UArg arg0, UArg arg1) {
         }
         // MPU:n getData kutsu
         mpu9250_get_data(&i2cMPU, &ax, &ay, &az, &gx, &gy, &gz);
-               if(ax >= 0.2 || ax <= -0.2){
+               if(az <= -1.2 || az >= 0.8){
+                   action = SEND_TWO;
+               }
+               if(ax >= 0.4 || ax <= -0.4){
                    action = EXERCISE;
                }
-               if(ay >= 0.2 || ay <= -0.2){
+               if(ay >= 0.4 || ay <= -0.4){
                    action = EAT;
                }
-               if(az <= -1.2 || az >= 0.8){
-                         //  action = PET;
-               }
+
+
 
         I2C_close(i2cMPU);
         programState = DATA_READY;
@@ -459,12 +466,19 @@ void deadMusic(){
 }
 
 Void speakerFxn(UArg arg0, UArg arg1) {
-
-        buzzerOpen(hBuzzer);
-        deadMusic();
-        buzzerClose();
+    while(1){
+        switch(isAlive){
+            case DEAD:
+                buzzerOpen(hBuzzer);
+                deadMusic();
+                buzzerClose();
+                break;
+            default:
+                break;
+        }
+        isAlive = ALIVE;
         Task_sleep(200000L / Clock_tickPeriod);
-
+    }
 }
 
 Int main(void) {
